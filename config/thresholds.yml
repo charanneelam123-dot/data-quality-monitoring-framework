@@ -1,0 +1,181 @@
+# =============================================================================
+# Data Quality Framework — Threshold Configuration
+# =============================================================================
+# Copy this file to dq_config.yml (git-ignored) and customise per pipeline.
+# All validator thresholds are defined here — no hardcoded values in code.
+#
+# Usage:
+#   runner = DQRunner.from_config("config/thresholds.yml", table_name="fact_orders")
+#   result = runner.run(df, spark=spark)
+# =============================================================================
+
+# ── Global alert settings ──────────────────────────────────────────────────────
+alerts:
+  notify_on_pass: false             # set true to send Slack/email on every run
+
+  slack:
+    webhook_url_env: SLACK_WEBHOOK_URL    # env var holding the Slack webhook URL
+    channel: "#data-quality"
+    mention_on_failure: "@data-team"      # prepended to failure messages
+    enabled: true
+
+  email:
+    smtp_host_env: SMTP_HOST
+    smtp_port: 587
+    smtp_user_env: SMTP_USER
+    smtp_password_env: SMTP_PASSWORD
+    from_address: "dq-alerts@company.com"
+    to_addresses:
+      - "data-team@company.com"
+    send_on_pass: false
+    enabled: true
+
+# ── Per-table validator configuration ─────────────────────────────────────────
+# tables["*"]         — global defaults applied to every table
+# tables[<name>]      — overrides merged on top of "*" (deep-merge by section)
+#
+# Supported validators (omit a key to disable that validator for a table):
+#   null_rate       — per-column null percentage
+#   volume_anomaly  — row count vs N-day rolling average
+#   schema_drift    — new / missing / type-changed columns
+#   freshness       — age of newest record vs SLA
+# =============================================================================
+
+tables:
+
+  # ── Global defaults (applied to all tables unless overridden) ──────────────
+  "*":
+    validators:
+
+      null_rate:
+        global_threshold: 0.05        # 5% max null rate for any column
+        column_thresholds: {}         # table-specific overrides added below
+        columns_to_skip: []
+
+      volume_anomaly:
+        threshold_pct: 0.30           # ±30% variance allowed
+        lookback_days: 7
+        min_baseline_days: 3
+        count_column: "_loaded_at"
+        # metrics_table: "dq.volume_history"   # uncomment to load history from Delta table
+
+      schema_drift:
+        reference_schema_path: null   # must be set per-table
+        fail_on_new_columns: false    # new columns are warnings only
+        fail_on_missing_columns: true
+        fail_on_type_changes: true
+        ignore_columns:
+          - _loaded_at
+          - _glue_run_id
+          - _processed_at
+
+      freshness:
+        timestamp_column: "_loaded_at"
+        sla_hours: 26                 # fail if newest record > 26h old
+        warn_hours: 20                # warn if > 20h (still passes)
+
+  # ── Fact table — strict nulls, ±25% volume ─────────────────────────────────
+  "fact_orders":
+    validators:
+      null_rate:
+        global_threshold: 0.02        # stricter than global default
+        column_thresholds:
+          order_id: 0.0               # primary key — never null
+          customer_id: 0.0
+          order_date: 0.0
+          gross_revenue: 0.0
+          net_revenue: 0.0
+          discount: 0.30              # discount often absent (no promo)
+
+      volume_anomaly:
+        threshold_pct: 0.25           # tighter variance for high-volume facts
+        count_column: "order_date"
+
+      schema_drift:
+        reference_schema_path: "config/schemas/fact_orders.json"
+        fail_on_new_columns: false
+
+      freshness:
+        timestamp_column: "_processed_at"
+        sla_hours: 26
+        warn_hours: 22
+
+  # ── Customer dimension — SLA 48h (daily refresh acceptable) ───────────────
+  "dim_customer":
+    validators:
+      null_rate:
+        global_threshold: 0.01
+        column_thresholds:
+          customer_id: 0.0
+          customer_name: 0.0
+          email: 0.20                 # email sometimes not collected
+
+      volume_anomaly:
+        threshold_pct: 0.50           # dimension cardinality can grow fast
+
+      schema_drift:
+        reference_schema_path: "config/schemas/dim_customer.json"
+
+      freshness:
+        timestamp_column: "_loaded_at"
+        sla_hours: 48
+
+  # ── NYC Taxi Silver layer ──────────────────────────────────────────────────
+  "silver_trips":
+    validators:
+      null_rate:
+        global_threshold: 0.05
+        column_thresholds:
+          vendor_id: 0.0
+          tpep_pickup_datetime: 0.0
+          fare_amount: 0.0
+          total_amount: 0.0
+        columns_to_skip:
+          - store_and_fwd_flag
+          - congestion_surcharge
+          - airport_fee
+
+      volume_anomaly:
+        threshold_pct: 0.40           # NYC taxi volume varies significantly
+        lookback_days: 7
+
+      schema_drift:
+        reference_schema_path: "config/schemas/silver_trips.json"
+        fail_on_new_columns: false
+
+      freshness:
+        timestamp_column: "tpep_pickup_datetime"
+        sla_hours: 28
+        warn_hours: 24
+
+  # ── Kafka clickstream silver sink ─────────────────────────────────────────
+  "silver_clickstream":
+    validators:
+      null_rate:
+        global_threshold: 0.10        # streaming events may have optional fields
+        column_thresholds:
+          event_id: 0.0
+          user_id: 0.0
+          event_type: 0.0
+          event_timestamp: 0.0
+
+      volume_anomaly:
+        threshold_pct: 0.60           # clickstream volume is highly variable
+        lookback_days: 3
+        min_baseline_days: 2
+
+      freshness:
+        timestamp_column: "event_timestamp"
+        sla_hours: 1                  # streaming — must be fresh within 1h
+        warn_hours: 0.5
+
+  # ── Add your own tables below ──────────────────────────────────────────────
+  # "your_schema.your_table":
+  #   validators:
+  #     null_rate:
+  #       global_threshold: 0.05
+  #       column_thresholds:
+  #         id_column: 0.0
+  #     freshness:
+  #       timestamp_column: "updated_at"
+  #       sla_hours: 24

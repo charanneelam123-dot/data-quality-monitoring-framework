@@ -1,0 +1,64 @@
+name: pipeline_dq_checkpoint
+config_version: 1.0
+template_name: null
+module_name: great_expectations.checkpoint
+class_name: SimpleCheckpoint
+
+# ---------------------------------------------------------------------------
+# Datasource — Spark DataFrame at runtime (no file-system connector needed)
+# ---------------------------------------------------------------------------
+run_name_template: "%Y%m%d-%H%M%S-{table_name}"
+
+expectation_suite_name: base_dq_suite
+
+batch_request:
+  datasource_name: spark_datasource
+  data_connector_name: runtime_data_connector
+  data_asset_name: pipeline_batch          # overridden per table at runtime
+  batch_identifiers:
+    pipeline_run_id: "REPLACE_AT_RUNTIME"  # set via Python API
+  runtime_parameters:
+    batch_data: null                       # set via Python API → pass your DataFrame
+
+# ---------------------------------------------------------------------------
+# Actions — what happens after validation
+# ---------------------------------------------------------------------------
+action_list:
+  - name: store_validation_result
+    action:
+      class_name: StoreValidationResultAction
+
+  - name: update_data_docs
+    action:
+      class_name: UpdateDataDocsAction
+      site_names: []   # populated from great_expectations.yml site config
+
+  - name: slack_notification_on_failure
+    action:
+      class_name: SlackNotificationAction
+      slack_webhook: ${SLACK_WEBHOOK_URL}
+      notify_on: failure                   # "all" | "failure" | "success"
+      show_failed_expectations: true
+      renderer:
+        module_name: great_expectations.render.renderer.slack_renderer
+        class_name: SlackRenderer
+
+# ---------------------------------------------------------------------------
+# Runtime usage (Python):
+# ---------------------------------------------------------------------------
+# from great_expectations.data_context import BaseDataContext
+# import great_expectations as gx
+#
+# context = gx.get_context()
+# checkpoint_result = context.run_checkpoint(
+#     checkpoint_name="pipeline_dq_checkpoint",
+#     batch_request={
+#         "runtime_parameters": {"batch_data": silver_df},
+#         "batch_identifiers": {"pipeline_run_id": run_id},
+#         "data_asset_name": "fact_orders",
+#     },
+#     expectation_suite_name="base_dq_suite",
+#     run_name=f"fact_orders-{run_id}",
+# )
+# if not checkpoint_result["success"]:
+#     raise ValueError("Great Expectations checkpoint failed — aborting pipeline.")

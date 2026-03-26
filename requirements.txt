@@ -1,0 +1,20 @@
+# ── Core runtime ──────────────────────────────────────────────────────────────
+pyspark==3.5.0          # local Spark; Glue/Databricks provide their own runtime
+pyyaml==6.0.1           # YAML config loading
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest==7.4.4
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+
+# ── Linting / formatting ──────────────────────────────────────────────────────
+ruff==0.1.14
+black==24.1.1
+isort==5.13.2
+bandit[toml]==1.7.7
+
+# ── Optional: Great Expectations integration ──────────────────────────────────
+great-expectations==0.18.12
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv==1.0.1    # loads .env for local development

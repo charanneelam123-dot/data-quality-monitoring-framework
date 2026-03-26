@@ -1,0 +1,190 @@
+{
+  "expectation_suite_name": "base_dq_suite",
+  "meta": {
+    "great_expectations_version": "0.18.0",
+    "description": "Reusable base suite for any pipeline table. Override column names and thresholds at runtime via RuntimeBatchRequest batch_parameters.",
+    "created_by": "data-quality-monitoring-framework"
+  },
+  "expectations": [
+    {
+      "expectation_type": "expect_table_row_count_to_be_between",
+      "kwargs": {
+        "min_value": 1,
+        "max_value": null
+      },
+      "meta": {
+        "notes": "Table must not be empty. Set max_value at runtime if upper bound is known."
+      }
+    },
+    {
+      "expectation_type": "expect_table_columns_to_match_set",
+      "kwargs": {
+        "column_set": null,
+        "exact_match": false
+      },
+      "meta": {
+        "notes": "Set column_set at runtime. exact_match=false allows extra columns (new columns are warnings, not failures)."
+      }
+    },
+    {
+      "expectation_type": "expect_column_to_exist",
+      "kwargs": { "column": "order_id" },
+      "meta": { "notes": "Override column name at runtime for non-orders tables." }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "order_id",
+        "mostly": 1.0
+      },
+      "meta": { "notes": "Primary / natural key must never be null." }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "customer_id",
+        "mostly": 1.0
+      },
+      "meta": {}
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "order_date",
+        "mostly": 1.0
+      },
+      "meta": {}
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "_loaded_at",
+        "mostly": 1.0
+      },
+      "meta": { "notes": "ETL audit column — must always be populated." }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_of_type",
+      "kwargs": {
+        "column": "order_date",
+        "type_": "DateType"
+      },
+      "meta": {}
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "gross_revenue",
+        "min_value": 0,
+        "max_value": null,
+        "mostly": 0.99
+      },
+      "meta": { "notes": "Revenue must be non-negative. 1% tolerance for refunds/adjustments." }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "quantity",
+        "min_value": 1,
+        "max_value": null,
+        "mostly": 1.0
+      },
+      "meta": {}
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "discount",
+        "min_value": 0,
+        "max_value": 1,
+        "mostly": 1.0
+      },
+      "meta": { "notes": "Discount must be in [0, 1] as a fraction." }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "order_status",
+        "value_set": ["pending", "confirmed", "shipped", "delivered", "cancelled", "returned"],
+        "mostly": 1.0
+      },
+      "meta": { "notes": "Override value_set at runtime for your domain." }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "order_status",
+        "mostly": 1.0
+      },
+      "meta": {}
+    },
+    {
+      "expectation_type": "expect_column_value_lengths_to_be_between",
+      "kwargs": {
+        "column": "order_id",
+        "min_value": 1,
+        "max_value": 100,
+        "mostly": 1.0
+      },
+      "meta": {}
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "order_id",
+        "mostly": 1.0
+      },
+      "meta": { "notes": "Set mostly < 1.0 if the table is a line-item fact (order_id is not unique at line level)." }
+    },
+    {
+      "expectation_type": "expect_column_pair_values_a_to_be_greater_than_b",
+      "kwargs": {
+        "column_A": "net_revenue",
+        "column_B": "gross_revenue",
+        "or_equal": true,
+        "mostly": 1.0
+      },
+      "meta": {
+        "notes": "net_revenue <= gross_revenue always (discount can only reduce revenue)."
+      }
+    },
+    {
+      "expectation_type": "expect_table_row_count_to_equal_other_table",
+      "kwargs": {
+        "other_table_name": null
+      },
+      "meta": {
+        "notes": "Optional: cross-table row count validation. Set other_table_name at runtime.",
+        "enabled": false
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "gross_revenue",
+        "mostly": 1.0
+      },
+      "meta": {}
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "net_revenue",
+        "mostly": 1.0
+      },
+      "meta": {}
+    },
+    {
+      "expectation_type": "expect_column_max_to_be_between",
+      "kwargs": {
+        "column": "_loaded_at",
+        "min_value": null,
+        "max_value": null
+      },
+      "meta": {
+        "notes": "Freshness check — set min_value at runtime to (now - sla_hours). GE complement to FreshnessChecker."
+      }
+    }
+  ],
+  "data_asset_type": null
+}
