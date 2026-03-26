@@ -351,3 +351,4 @@ def model(dbt, session):
 | `DQ_METRICS_TABLE` | No | Delta table for volume history |
 
 Copy `.env.example` → `.env` and populate. `python-dotenv` loads it automatically in local runs.
+
